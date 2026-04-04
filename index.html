@@ -44,12 +44,7 @@
                 location.reload();
             }
         };
-        fetch(targetFile)
-    .then(response => response.text())
-    .then(html => {
-        const root = document.getElementById('app-root');
-        root.innerHTML = html;
-        
+      
         // This part is vital for GitHub Pages:
         const scripts = root.querySelectorAll('script');
         scripts.forEach(oldScript => {
