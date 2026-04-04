@@ -1,37 +1,100 @@
-<style>
-    .desktop-wrapper { font-family: 'Inter', sans-serif; display: flex; height: 100vh; background: #f3f4f6; }
-    #sidebar { width: 350px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
-    #main-content { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 50px; }
-    
-    .search-box { max-width: 600px; width: 100%; text-align: center; }
-    .result-display { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-bottom: 30px; }
-    
-    input { width: 100%; padding: 20px; font-size: 1.5rem; border-radius: 10px; border: 1px solid #ccc; }
-    .btn-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px; }
-    .btn { padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
-</style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lexi-Trace Pro | Persistent Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.88/epub.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #f3f4f6; --accent: #1e293b; --blue: #3b82f6; --text: #111827; --success: #10b981; --danger: #ef4444; --card: #ffffff; }
+        body { font-family: 'Inter', sans-serif; margin: 0; background: var(--bg); height: 100vh; display: flex; flex-direction: column; color: var(--text); overflow: hidden; }
+        #header { background: var(--card); border-bottom: 1px solid #e5e7eb; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 100; flex-shrink: 0; }
+        .logo { font-weight: 800; color: var(--accent); font-size: 1.1rem; }
+        #main-layout { display: flex; flex-grow: 1; overflow: hidden; position: relative; }
+        #vault { width: 380px; background: #f9fafb; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1001; }
+        #vault-header { padding: 20px; border-bottom: 1px solid #e5e7eb; font-weight: 800; font-size: 0.9rem; color: #6b7280; display: flex; justify-content: space-between; align-items: center; }
+        #close-vault-btn { display: none; background: #eee; border: none; padding: 5px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; }
+        #starred-list { flex-grow: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
+        .star-card { background: white; padding: 15px; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative; }
+        .star-card h4 { margin: 0 0 5px 0; font-size: 1rem; color: var(--blue); }
+        .star-card p { margin: 0; font-size: 0.85rem; color: #6b7280; line-height: 1.4; }
+        .del-btn { position: absolute; top: 10px; right: 10px; color: #d1d5db; cursor: pointer; border: none; background: none; font-size: 1.2rem; line-height: 1; }
+        .del-btn:hover { color: var(--danger); }
+        #search-area { flex-grow: 1; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-y: auto; }
+        .search-container { max-width: 700px; width: 100%; display: flex; flex-direction: column; gap: 24px; }
+        .result-card { background: white; padding: 40px; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); text-align: center; border-bottom: 5px solid var(--blue); }
+        #sentence-display { font-size: 1.4rem; font-weight: 500; line-height: 1.6; color: #4b5563; margin-bottom: 15px; }
+        .highlight { background: #dbeafe; color: var(--blue); padding: 2px 6px; border-radius: 6px; font-weight: 700; }
+        #trans-display { font-size: 1.2rem; color: var(--success); font-weight: 600; min-height: 1.5em; }
+        .input-wrapper { position: relative; width: 100%; }
+        input[type="text"] { width: 100%; padding: 20px; border: 2px solid #e5e7eb; border-radius: 16px; font-size: 1.2rem; outline: none; transition: 0.2s; box-sizing: border-box; padding-right: 60px; }
+        #clear-btn { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: #e5e7eb; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 0; padding: 0; font-size: 14px; color: #6b7280; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        button { padding: 16px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.95rem; }
+        .primary-btn { background: var(--accent); color: white; }
+        .star-btn { background: var(--success); color: white; grid-column: span 2; }
+        #nav-controls { display: none; grid-template-columns: 1fr 1fr; gap: 12px; grid-column: span 2; }
+        #mobile-vault-toggle { display: none; background: var(--accent); color: white; border-radius: 50px; padding: 12px 24px; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: none; font-weight: bold; }
+        @media (max-width: 900px) { #vault { position: absolute; left: 0; top: 0; bottom: 0; transform: translateX(-100%); width: 100%; } #vault.open { transform: translateX(0); } #close-vault-btn { display: block; } #search-area { padding: 20px; } #mobile-vault-toggle { display: block; } #sentence-display { font-size: 1.1rem; } }
+        .dropdown { position: relative; display: inline-block; }
+        .dropdown-content { display: none; position: absolute; right: 0; background: white; min-width: 280px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); border-radius: 12px; padding: 20px; z-index: 110; border: 1px solid #eee; }
+        .dropdown:hover .dropdown-content { display: block; }
+        #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; padding: 10px 20px; border-radius: 30px; font-size: 0.8rem; opacity: 0; transition: 0.3s; z-index: 2000; pointer-events: none; }
+    </style>
+</head>
+<body>
 
-<div class="desktop-wrapper">
-    <div id="sidebar">
-        <div style="padding: 20px; border-bottom: 1px solid #eee;"><strong>SAVED VAULT</strong></div>
-        <div id="starred-list" style="overflow-y:auto; padding:20px;"></div>
-    </div>
-    
-    <div id="main-content">
-        <div class="search-box">
-            <div class="result-display">
-                <div id="sentence-display" style="font-size: 1.5rem;">Desktop Mode Ready</div>
-                <div id="trans-display" style="color:green; margin-top:15px;"></div>
-            </div>
-            <input type="text" id="initialsInput" placeholder="Enter initials..." autofocus>
-            <div class="btn-grid">
-                <button onclick="handleTranslate('phrase')" class="btn" style="background:#1e293b; color:white;">Translate Phrase</button>
-                <button onclick="handleTranslate('sentence')" class="btn" style="background:#1e293b; color:white;">Full Context</button>
-                <button onclick="addToFavorites()" class="btn" style="background:#10b981; color:white;">⭐ Save to Vault</button>
+<div id="header">
+    <div class="logo">LEXI-TRACE PRO</div>
+    <div style="display:flex; gap:10px;">
+        <div class="dropdown">
+            <button class="primary-btn" style="padding: 8px 16px;">Settings ▾</button>
+            <div class="dropdown-content">
+                <input type="file" id="fileInput" accept=".epub,.pdf" style="margin-bottom:10px; width:100%;">
+                <select id="targetLang" style="width:100%; padding:8px; margin-bottom:10px;">
+                    <option value="tr">Turkish</option><option value="de">German</option><option value="fr">French</option>
+                </select>
+                <input type="text" id="startPointInput" placeholder="Sync Sentence..." style="padding:8px; font-size:0.8rem; width:100%; box-sizing:border-box;">
+                <button onclick="downloadFavorites()" style="width:100%; background:var(--success); color:white; margin-top:10px;">Export Vocab</button>
+                <button onclick="resetSession()" style="width:100%; background:var(--danger); color:white; margin-top:5px;">Factory Reset</button>
             </div>
         </div>
     </div>
 </div>
+
+<div id="main-layout">
+    <div id="vault">
+        <div id="vault-header">SAVED VAULT (<span id="star-count">0</span>) <button id="close-vault-btn" onclick="toggleVault()">CLOSE ✕</button></div>
+        <div id="starred-list"></div>
+    </div>
+
+    <div id="search-area">
+        <div class="search-container">
+            <div class="result-card">
+                <div id="sentence-display">Scan your book by typing initials below.</div>
+                <div id="trans-display"></div>
+            </div>
+            <div class="input-wrapper">
+                <input type="text" id="initialsInput" placeholder="Initials + Enter..." autofocus>
+                <button id="clear-btn" onclick="clearInput()">✕</button>
+            </div>
+            <div class="btn-grid">
+                <button onclick="handleTranslate('phrase')" class="primary-btn">Translate Phrase</button>
+                <button onclick="handleTranslate('sentence')" class="primary-btn">Full Context</button>
+                <div id="nav-controls">
+                    <button onclick="navigateMatches(-1)" style="background:#e5e7eb;">Prev</button>
+                    <button onclick="navigateMatches(1)" style="background:#e5e7eb;">Next</button>
+                </div>
+                <button onclick="addToFavorites()" class="star-btn">⭐ Save to Vault</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button id="mobile-vault-toggle" onclick="toggleVault()">Open Vault</button>
+<div id="toast">Message</div>
 
 <script>
 const GOOGLE_API_KEY = "AIzaSyCFdyXlPtnPoLK28wmDIA_JVthYZeExWkk";
@@ -317,3 +380,5 @@ function downloadFavorites() {
     showToast("Vault exported as JSON");
 }
 </script>
+</body>
+</html>
