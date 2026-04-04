@@ -12,28 +12,35 @@
     <div id="app-root">Loading Lexi-Trace Pro...</div>
 
     <script>
-        function loadLayout() {
-            const isMobile = window.innerWidth <= 900;
-            const targetFile = isMobile ? 'mobile.html' : 'desktop.html';
+       function loadLayout() {
+    const isMobile = window.innerWidth <= 900;
+    const targetFile = isMobile ? 'mobile.html' : 'desktop.html';
 
-            fetch(targetFile)
-                .then(response => response.text())
-                .then(html => {
-                    document.getElementById('app-root').innerHTML = html;
-                    
-                    // CRITICAL: Re-run the scripts inside the loaded page
-                    const scripts = document.getElementById('app-root').querySelectorAll('script');
-                    scripts.forEach(oldScript => {
-                        const newScript = document.createElement("script");
-                        Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
-                        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
-                        oldScript.parentNode.replaceChild(newScript, oldScript);
-                    });
-                })
-                .catch(err => {
-                    document.getElementById('app-root').innerHTML = "Error loading layout. Please ensure mobile.html and desktop.html are in the same folder.";
+    fetch(targetFile)
+        .then(response => {
+            if (!response.ok) throw new Error('File not found');
+            return response.text();
+        })
+        .then(html => {
+            const root = document.getElementById('app-root');
+            root.innerHTML = html;
+            
+            // Re-inject scripts so they execute
+            const scripts = root.querySelectorAll('script');
+            scripts.forEach(oldScript => {
+                const newScript = document.createElement("script");
+                Array.from(oldScript.attributes).forEach(attr => {
+                    newScript.setAttribute(attr.name, attr.value);
                 });
-        }
+                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+        })
+        .catch(err => {
+            document.getElementById('app-root').innerHTML = `Error: ${err.message}. Check filenames.`;
+        });
+}
+
 
         window.onload = loadLayout;
         // Optional: Reload if window is resized (useful for testing on desktop)
