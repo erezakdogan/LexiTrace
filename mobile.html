@@ -1,0 +1,327 @@
+<style>
+    :root { --bg: #f3f4f6; --accent: #1e293b; --blue: #3b82f6; --success: #10b981; }
+    .mobile-wrapper { font-family: 'Inter', sans-serif; height: 100dvh; display: flex; flex-direction: column; background: var(--bg); position: fixed; width: 100%; }
+    
+    #header { padding: 10px 15px; background: white; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    
+    #search-area { padding: 15px; flex-grow: 1; overflow-y: auto; }
+    .result-card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; text-align: center; border-bottom: 4px solid var(--blue); }
+    
+    /* Input/Icons Row right under Result Box */
+    .mobile-input-group { display: flex; flex-direction: column; gap: 10px; }
+    input[type="text"] { width: 100%; padding: 15px; border-radius: 12px; border: 2px solid #ddd; font-size: 1rem; box-sizing: border-box; }
+    
+    .icon-row { display: flex; gap: 8px; }
+    .icon-btn { flex: 1; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: white; font-size: 1.2rem; }
+    .icon-btn.star { background: var(--success); }
+</style>
+
+<div class="mobile-wrapper">
+    <div id="header">
+        <strong>LEXI-TRACE</strong>
+        <button onclick="toggleVault()" style="background:var(--blue); color:white; border:none; padding:5px 12px; border-radius:8px;">VAULT</button>
+    </div>
+    
+    <div id="search-area">
+        <div class="result-card">
+            <div id="sentence-display">Type initials...</div>
+            <div id="trans-display" style="margin-top:10px; color:var(--success); font-weight:bold;"></div>
+        </div>
+        
+        <div class="mobile-input-group">
+            <input type="text" id="initialsInput" placeholder="Initials..." autofocus>
+            <div class="icon-row">
+                <button onmousedown="event.preventDefault(); handleTranslate('phrase')" class="icon-btn">文</button>
+                <button onmousedown="event.preventDefault(); handleTranslate('sentence')" class="icon-btn">📋</button>
+                <button onmousedown="event.preventDefault(); addToFavorites()" class="icon-btn star">⭐</button>
+                <button onmousedown="event.preventDefault(); navigateMatches(-1)" class="icon-btn" style="background:#ccc">◀</button>
+                <button onmousedown="event.preventDefault(); navigateMatches(1)" class="icon-btn" style="background:#ccc">▶</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const GOOGLE_API_KEY = "AIzaSyCFdyXlPtnPoLK28wmDIA_JVthYZeExWkk";
+    let bookSentences = [], matches = [], matchPointer = 0, favorites = [], transCache = JSON.parse(localStorage.getItem('lexi_cache')) || [];
+    let activeData = { phrase: "", full: "", pT: "", sT: "" };
+    let currentIdx = parseInt(localStorage.getItem('lexi_last_index')) || 0;
+    let db;
+
+    /**
+     * DB Initializer: Sets up IndexedDB for persistent storage of book content and starred words.
+     * Persistent across browser restarts.
+     */
+    const dbReq = indexedDB.open("LexiTraceProDB", 2);
+    dbReq.onupgradeneeded = (e) => {
+        const database = e.target.result;
+        if (!database.objectStoreNames.contains("books")) database.createObjectStore("books", { keyPath: "id" });
+        if (!database.objectStoreNames.contains("vault")) database.createObjectStore("vault", { keyPath: "id" });
+    };
+    dbReq.onsuccess = (e) => { db = e.target.result; loadBook(); loadVault(); };
+
+    /**
+     * loadBook/loadVault: Internal retrievers to hydrate state from IndexedDB.
+     */
+    function loadBook() {
+        const trans = db.transaction(["books"], "readonly");
+        const req = trans.objectStore("books").get("currentBook");
+        req.onsuccess = () => { if (req.result) finalize(req.result.content); };
+    }
+
+    function loadVault() {
+        const trans = db.transaction(["vault"], "readonly");
+        const req = trans.objectStore("vault").getAll();
+        req.onsuccess = () => { favorites = req.result || []; renderVault(); };
+    }
+
+    /**
+     * Sync Function: Fuzzy-finds a sentence to reset the starting search index.
+     */
+    document.getElementById('startPointInput').addEventListener('change', (e) => {
+        const text = e.target.value.trim().toLowerCase();
+        if (!text || bookSentences.length === 0) return;
+        const foundIdx = bookSentences.findIndex(s => s.toLowerCase().includes(text));
+        if (foundIdx !== -1) {
+            currentIdx = foundIdx;
+            localStorage.setItem('lexi_last_index', currentIdx);
+            showToast(`Synced to location ${foundIdx}`);
+            e.target.value = "";
+        } else {
+            showToast("Sentence not found.");
+        }
+    });
+
+    /**
+     * Vault Operations: Add/Delete starred items with persistent IndexedDB commits.
+     */
+    function addToFavorites() {
+        if (!activeData.phrase) return;
+        const item = { id: Date.now().toString(), p: activeData.phrase, pT: activeData.pT || "...", s: activeData.full, sT: activeData.sT || "..." };
+        const trans = db.transaction(["vault"], "readwrite");
+        trans.objectStore("vault").add(item);
+        favorites.push(item);
+        renderVault();
+        showToast("Saved to Vault");
+    }
+
+    function deleteStar(id) {
+        const trans = db.transaction(["vault"], "readwrite");
+        trans.objectStore("vault").delete(id);
+        favorites = favorites.filter(f => f.id !== id);
+        renderVault();
+    }
+
+    function renderVault() {
+        const list = document.getElementById('starred-list');
+        list.innerHTML = "";
+        favorites.forEach(f => {
+            const card = document.createElement('div');
+            card.className = "star-card";
+            card.innerHTML = `<button class="del-btn" onclick="deleteStar('${f.id}')">✕</button><h4>${f.p}</h4><p><strong>Trans:</strong> ${f.pT}</p><p style="margin-top:5px; font-size:0.75rem; border-top:1px solid #eee; padding-top:5px;">${f.s}</p>`;
+            list.appendChild(card);
+        });
+        document.getElementById('star-count').innerText = favorites.length;
+    }
+
+    /**
+     * File Engine: Parses EPUB and PDF files into raw text.
+     */
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        let text = "";
+        if (file.type === "application/pdf") {
+            const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                text += content.items.map(item => item.str).join(" ") + " ";
+            }
+        } else {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const book = ePub(ev.target.result);
+                book.loaded.navigation.then(() => {
+                    const promises = [];
+                    book.spine.each(item => promises.push(item.load(book.load.bind(book)).then(doc => doc.body.innerText)));
+                    Promise.all(promises).then(chaps => saveBook(file.name, chaps.join(" ")));
+                });
+            };
+            reader.readAsArrayBuffer(file);
+            return;
+        }
+        saveBook(file.name, text);
+    });
+
+    function saveBook(name, text) {
+        const trans = db.transaction(["books"], "readwrite");
+        trans.objectStore("books").put({ id: "currentBook", name: name, content: text });
+        finalize(text);
+        showToast("Book Ready!");
+    }
+
+    function finalize(text) {
+        bookSentences = text.replace(/\s+/g, ' ').split(/(?<=[.!?]["'”’]?)\s+|(?<=\.{3}["'”’]?)\s+/).map(s => s.trim()).filter(s => s.length > 0);
+    }
+
+   /**
+ * UPDATED SEARCH CORE: 
+ * Now captures multiple matches within the SAME sentence.
+ */
+function search() {
+    const input = document.getElementById('initialsInput').value.trim().toLowerCase();
+    if (!input) return;
+    
+    matches = [];
+    const regexParts = input.split('').map(c => `\\b${c}[\\w'’’"“”]*`);
+    // Added 'g' flag for global searching within the string
+    const regex = new RegExp(`(${regexParts.join('\\s+')})`, 'gi'); 
+    
+    let wordsScanned = 0;
+    const maxLookAhead = 500; // Increased look-ahead for better discovery
+
+    for (let i = currentIdx; i < bookSentences.length && wordsScanned < maxLookAhead; i++) {
+        const sentence = bookSentences[i];
+        wordsScanned += sentence.split(' ').length;
+
+        let match;
+        // The 'while' loop finds EVERY instance in the current sentence
+        while ((match = regex.exec(sentence)) !== null) {
+            matches.push({
+                index: i,
+                phrase: match[0],
+                full: sentence,
+                startOffset: match.index // Store exactly where the word starts
+            });
+        }
+    }
+
+    document.getElementById('nav-controls').style.display = matches.length > 1 ? 'grid' : 'none';
+    
+    if (matches.length > 0) {
+        matchPointer = 0;
+        display();
+    } else {
+        showToast("No matches found in this section.");
+    }
+}
+
+/**
+ * UPDATED DISPLAY: 
+ * Precisely highlights the specific match instance.
+ */
+function display() {
+    const data = matches[matchPointer];
+    currentIdx = data.index;
+    localStorage.setItem('lexi_last_index', currentIdx);
+    
+    activeData = { phrase: data.phrase, full: data.full, pT: "", sT: "" };
+
+    // We use a more precise replacement to only highlight the Nth occurrence
+    const sentence = data.full;
+    const before = sentence.substring(0, data.startOffset);
+    const matchText = sentence.substring(data.startOffset, data.startOffset + data.phrase.length);
+    const after = sentence.substring(data.startOffset + data.phrase.length);
+
+    document.getElementById('sentence-display').innerHTML = 
+        `${before}<span class="highlight">${matchText}</span>${after}`;
+    
+    document.getElementById('trans-display').innerText = "";
+    document.getElementById('initialsInput').value = "";
+}
+    /**
+     * Translator: Fetches from Google API. Implements a cache to prevent redundant API calls.
+     */
+    async function handleTranslate(mode) {
+        const target = mode === 'phrase' ? activeData.phrase : activeData.full;
+        const lang = document.getElementById('targetLang').value;
+        const cacheKey = `${lang}_${target.toLowerCase().trim()}`;
+        const cached = transCache.find(c => c.key === cacheKey);
+        if (cached) { updateUI(cached.val, mode); return; }
+        document.getElementById('trans-display').innerText = "Translating...";
+        try {
+            const res = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${GOOGLE_API_KEY}`, { method: 'POST', body: JSON.stringify({ q: target, target: lang }) });
+            const data = await res.json();
+            const result = data.data.translations[0].translatedText;
+            manageCache(cacheKey, result);
+            updateUI(result, mode);
+        } catch { showToast("API Error"); }
+    }
+
+    function updateUI(val, mode) {
+        const decoded = document.createElement('textarea'); decoded.innerHTML = val;
+        document.getElementById('trans-display').innerText = decoded.value;
+        if (mode === 'phrase') activeData.pT = decoded.value; else activeData.sT = decoded.value;
+    }
+
+    function manageCache(key, val) {
+        transCache.push({ key, val });
+        if (transCache.length > 25) transCache.shift();
+        localStorage.setItem('lexi_cache', JSON.stringify(transCache));
+    }
+
+    /**
+     * Smart Interceptor: Focus-independent keyboard shortcuts (1, 2, 3, Arrows).
+     */
+    document.getElementById('initialsInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { search(); return; }
+        if (activeData.phrase !== "") {
+            if (e.key === '1') { e.preventDefault(); handleTranslate('phrase'); }
+            else if (e.key === '2') { e.preventDefault(); handleTranslate('sentence'); }
+            else if (e.key === '3') { e.preventDefault(); addToFavorites(); }
+            else if (e.key === 'ArrowRight' && matches.length > 1) { e.preventDefault(); navigateMatches(1); }
+            else if (e.key === 'ArrowLeft' && matches.length > 1) { e.preventDefault(); navigateMatches(-1); }
+        }
+    });
+
+    /**
+     * UI Utils: Toast, Clear, Vault toggle, Reset, and Text Export.
+     */
+    function toggleVault() { document.getElementById('vault').classList.toggle('open'); }
+    function clearInput() { document.getElementById('initialsInput').value = ""; document.getElementById('initialsInput').focus(); }
+    function showToast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.style.opacity = 1; setTimeout(() => t.style.opacity = 0, 2500); }
+    function navigateMatches(dir) { matchPointer = (matchPointer + dir + matches.length) % matches.length; display(); }
+    function resetSession() { if(confirm("Wipe all data?")) { indexedDB.deleteDatabase("LexiTraceProDB"); localStorage.clear(); location.reload(); } }
+   /**
+ * EXPORT AS JSON: 
+ * Converts the Vault into a structured JSON file for backup or app integration.
+ */
+function downloadFavorites() {
+    if (favorites.length === 0) {
+        showToast("Vault is empty!");
+        return;
+    }
+
+    // Create a structured object with metadata
+    const exportData = {
+        appName: "Lexi-Trace Pro",
+        exportDate: new Date().toISOString(),
+        totalItems: favorites.length,
+        vocabulary: favorites.map(f => ({
+            id: f.id,
+            phrase: f.p,
+            translation: f.pT,
+            context: f.s,
+            contextTranslation: f.sT
+        }))
+    };
+
+    // Convert to JSON string with 2-space indentation for readability
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    
+    // Create download link
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lexi-trace-vault-${new Date().toLocaleDateString().replace(/\//g, '-')}.json`;
+    
+    // Trigger download and cleanup
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast("Vault exported as JSON");
+}
+</script>

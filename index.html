@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lexi-Trace Pro | Loader</title>
+</head>
+<body>
+    <div id="app-root">Loading Lexi-Trace Pro...</div>
+
+    <script>
+        function loadLayout() {
+            const isMobile = window.innerWidth <= 900;
+            const targetFile = isMobile ? 'mobile.html' : 'desktop.html';
+
+            fetch(targetFile)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('app-root').innerHTML = html;
+                    
+                    // CRITICAL: Re-run the scripts inside the loaded page
+                    const scripts = document.getElementById('app-root').querySelectorAll('script');
+                    scripts.forEach(oldScript => {
+                        const newScript = document.createElement("script");
+                        Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+                        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                    });
+                })
+                .catch(err => {
+                    document.getElementById('app-root').innerHTML = "Error loading layout. Please ensure mobile.html and desktop.html are in the same folder.";
+                });
+        }
+
+        window.onload = loadLayout;
+        // Optional: Reload if window is resized (useful for testing on desktop)
+        window.onresize = () => {
+            const isMobile = window.innerWidth <= 900;
+            // Only reload if we actually crossed the threshold
+            if ((isMobile && !window.isMobileMode) || (!isMobile && window.isMobileMode)) {
+                location.reload();
+            }
+        };
+    </script>
+</body>
+</html>
