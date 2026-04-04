@@ -97,17 +97,29 @@
         <div class="dropdown" id="settingsDropdown">
             <button onclick="toggleSettings()" class="action-btn secondary" style="font-size: 0.8rem; padding: 6px 12px;">Settings ▾</button>
             <div class="dropdown-content">
-                <button onclick="toggleVault(); toggleSettings();" style="width:100%; background:var(--blue); color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; margin-bottom:10px;">📖 View Saved Vault</button>
-                <hr style="border:0; border-top:1px solid #eee; margin-bottom:10px;">
-                <input type="file" id="fileInput" accept=".epub,.pdf" style="width:100%; margin-bottom:10px; font-size:0.7rem;">
-                <select id="targetLang" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:1px solid #ddd;">
-                    <option value="tr">Turkish</option>
-                    <option value="de">German</option>
-                    <option value="fr">French</option>
-                </select>
-                <button onclick="downloadFavorites()" style="width:100%; background:var(--success); color:white; border:none; padding:10px; border-radius:8px; margin-bottom:5px;">Export JSON</button>
-                <button onclick="resetSession()" style="width:100%; background:var(--danger); color:white; border:none; padding:10px; border-radius:8px;">Factory Reset</button>
-            </div>
+    <button onclick="toggleVault(); toggleSettings();" style="width:100%; background:var(--blue); color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; margin-bottom:15px;">📖 View Saved Vault</button>
+    
+    <div style="background: #f8fafc; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e2e8f0;">
+        <label style="font-size: 0.7rem; font-weight: 700; color: #64748b; display: block; margin-bottom: 5px;">JUMP TO INDEX</label>
+        <div style="display: flex; gap: 5px;">
+            <input type="number" id="startIndexInput" placeholder="Index..." style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.8rem;">
+            <button onclick="setStartingPoint()" style="background: var(--accent); color: white; border: none; padding: 0 12px; border-radius: 6px; font-weight: bold; font-size: 0.75rem;">Set</button>
+        </div>
+    </div>
+
+    <hr style="border:0; border-top:1px solid #eee; margin-bottom:15px;">
+    
+    <input type="file" id="fileInput" accept=".epub,.pdf" style="width:100%; margin-bottom:10px; font-size:0.7rem;">
+    
+    <select id="targetLang" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:1px solid #ddd; font-size: 0.9rem;">
+        <option value="tr">Turkish</option>
+        <option value="de">German</option>
+        <option value="fr">French</option>
+    </select>
+    
+    <button onclick="downloadFavorites()" style="width:100%; background:var(--success); color:white; border:none; padding:10px; border-radius:8px; margin-bottom:5px; font-size: 0.9rem;">Export JSON</button>
+    <button onclick="resetSession()" style="width:100%; background:var(--danger); color:white; border:none; padding:10px; border-radius:8px; font-size: 0.9rem;">Factory Reset</button>
+</div>
         </div>
     </div>
 
@@ -173,6 +185,19 @@
 
         setupDB();
     }
+    function setStartingPoint() {
+    const val = document.getElementById('startIndexInput').value;
+    if (val !== "" && !isNaN(val)) {
+        currentIdx = parseInt(val);
+        localStorage.setItem('lexi_last_index', currentIdx);
+        showToast(`Jumped to index: ${currentIdx}`);
+        toggleSettings(); // Close menu after setting
+        
+        // Clear current display to show we've moved
+        document.getElementById('sentence-display').innerText = `Jumped to index ${currentIdx}. Ready for new search.`;
+        document.getElementById('trans-display').innerText = "";
+    }
+}
 
     function setupDB() {
         const dbReq = indexedDB.open("LexiTraceProDB", 2);
