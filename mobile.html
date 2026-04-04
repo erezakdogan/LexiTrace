@@ -52,6 +52,25 @@ const GOOGLE_API_KEY = "AIzaSyCFdyXlPtnPoLK28wmDIA_JVthYZeExWkk";
      * DB Initializer: Sets up IndexedDB for persistent storage of book content and starred words.
      * Persistent across browser restarts.
      */
+    function initializeApp() {
+        // Find your elements AFTER they are injected
+        const inputField = document.getElementById('initialsInput');
+        const vaultList = document.getElementById('starred-list');
+
+        if (!inputField || !vaultList) {
+            // If elements aren't ready, wait 50ms and try again
+            setTimeout(initializeApp, 50);
+            return;
+        }
+
+        // --- REST OF YOUR LOGIC GOES HERE ---
+        // (The search, translate, and DB functions)
+        console.log("App Initialized successfully");
+    }
+
+    // Start the check
+    initializeApp();
+    
     const dbReq = indexedDB.open("LexiTraceProDB", 2);
     dbReq.onupgradeneeded = (e) => {
         const database = e.target.result;
