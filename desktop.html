@@ -103,6 +103,23 @@ const GOOGLE_API_KEY = "AIzaSyCFdyXlPtnPoLK28wmDIA_JVthYZeExWkk";
     let currentIdx = parseInt(localStorage.getItem('lexi_last_index')) || 0;
     let db;
 
+
+    function initializeApp() {
+        // Find your elements AFTER they are injected
+        const inputField = document.getElementById('initialsInput');
+        const vaultList = document.getElementById('starred-list');
+
+        if (!inputField || !vaultList) {
+            // If elements aren't ready, wait 50ms and try again
+            setTimeout(initializeApp, 50);
+            return;
+        }
+
+        // --- REST OF YOUR LOGIC GOES HERE ---
+        // (The search, translate, and DB functions)
+        console.log("App Initialized successfully");
+    }
+    initializeApp();
     /**
      * DB Initializer: Sets up IndexedDB for persistent storage of book content and starred words.
      * Persistent across browser restarts.
