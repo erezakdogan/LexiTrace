@@ -214,6 +214,39 @@
     }
 
     // --- Core Logic Functions (Search, Translate, etc.) ---
+     document.getElementById('fileInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        let text = "";
+        if (file.type === "application/pdf") {
+            const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                text += content.items.map(item => item.str).join(" ") + " ";
+            }
+        } else {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const book = ePub(ev.target.result);
+                book.loaded.navigation.then(() => {
+                    const promises = [];
+                    book.spine.each(item => promises.push(item.load(book.load.bind(book)).then(doc => doc.body.innerText)));
+                    Promise.all(promises).then(chaps => saveBook(file.name, chaps.join(" ")));
+                });
+            };
+            reader.readAsArrayBuffer(file);
+            return;
+        }
+        saveBook(file.name, text);
+    });
+
+    function saveBook(name, text) {
+        const trans = db.transaction(["books"], "readwrite");
+        trans.objectStore("books").put({ id: "currentBook", name: name, content: text });
+        finalize(text);
+        showToast("Book Ready!");
+    }
+
 
     function loadBook() {
         const trans = db.transaction(["books"], "readonly");
