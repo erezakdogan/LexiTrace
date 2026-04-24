@@ -1,4 +1,13 @@
-<style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lexi-Trace Pro | Persistent Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.88/epub.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+   <style>
     :root { 
         --bg: #f3f4f6; 
         --accent: #1e293b; 
@@ -91,7 +100,9 @@
 
     #toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; padding: 10px 20px; border-radius: 20px; font-size: 0.8rem; opacity: 0; transition: 0.3s; z-index: 5000; pointer-events: none;}
 </style>
-
+</head>
+    <body>
+        
 <div class="mobile-wrapper">
     <div id="header">
         <div class="logo">LEXI-TRACE PRO</div>
@@ -363,3 +374,5 @@
     // Start App
     initializeApp();
 </script>
+    </body>
+</html>
