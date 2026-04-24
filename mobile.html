@@ -185,18 +185,18 @@
 
         setupDB();
     }
-    function setStartingPoint() {
-    const val = document.getElementById('startIndexInput').value;
-    if (val !== "" && !isNaN(val)) {
-        currentIdx = parseInt(val);
-        localStorage.setItem('lexi_last_index', currentIdx);
-        showToast(`Jumped to index: ${currentIdx}`);
-        toggleSettings(); // Close menu after setting
-        
-        // Clear current display to show we've moved
-        document.getElementById('sentence-display').innerText = `Jumped to index ${currentIdx}. Ready for new search.`;
-        document.getElementById('trans-display').innerText = "";
-    }
+ function setStartingPoint() {
+    const text = document.getElementById('startIndexInput').value.trim().toLowerCase();
+      if (!text || bookSentences.length === 0) return;
+        const foundIdx = bookSentences.findIndex(s => s.toLowerCase().includes(text));
+        if (foundIdx !== -1) {
+            currentIdx = foundIdx;
+            localStorage.setItem('lexi_last_index', currentIdx);
+            showToast(`Synced to location ${foundIdx}`);
+            e.target.value = "";
+        } else {
+            showToast("Sentence not found.");
+        }
 }
 
     function setupDB() {
