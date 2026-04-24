@@ -370,6 +370,48 @@
     }
 
     function resetSession() { if(confirm("Clear all data?")) { indexedDB.deleteDatabase("LexiTraceProDB"); localStorage.clear(); location.reload(); } }
+  /**
+ * EXPORT AS JSON: 
+ * Converts the Vault into a structured JSON file for backup or app integration.
+ */
+function downloadFavorites() {
+    if (favorites.length === 0) {
+        showToast("Vault is empty!");
+        return;
+    }
+
+    // Create a structured object with metadata
+    const exportData = {
+        appName: "Lexi-Trace Pro",
+        exportDate: new Date().toISOString(),
+        totalItems: favorites.length,
+        vocabulary: favorites.map(f => ({
+            id: f.id,
+            phrase: f.p,
+            translation: f.pT,
+            context: f.s,
+            contextTranslation: f.sT
+        }))
+    };
+
+    // Convert to JSON string with 2-space indentation for readability
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    
+    // Create download link
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lexi-trace-vault-${new Date().toLocaleDateString().replace(/\//g, '-')}.json`;
+    
+    // Trigger download and cleanup
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast("Vault exported as JSON");
+}
 
     // Start App
     initializeApp();
